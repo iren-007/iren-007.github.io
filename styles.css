@@ -1,0 +1,62 @@
+body {
+    font-family: sans-serif;
+    line-height: 1.4;
+    margin: 1rem;
+}
+
+h1 {
+    line-height: 1.2;
+}
+
+ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+form > fieldset {
+    margin-inline: 0;
+}
+
+form > fieldset + fieldset {
+    margin-block-start: 2rem;
+}
+
+form > fieldset > ul > li {
+    margin-top: 1rem;
+}
+
+fieldset fieldset {
+    border-inline: none;
+    border-block-end: none;
+}
+
+fieldset fieldset li + li {
+    margin-top: 0.5rem;
+}
+
+output {
+    display: inline-block;
+    margin-block-start: 1rem;
+}
+
+.reset-section {
+    margin-block-start: 1rem;
+}
+
+.reset-section button {
+    font: inherit;
+    padding: 0.5rem;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.5rem;
+}
+
+tbody td {
+    text-align: center;
+}
