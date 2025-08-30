@@ -24,22 +24,46 @@ class ResultsCalculator {
     }
 
     calcResults() {
-        let vata = Math.round(this.vataInputs.filter(this.isChecked).length / this.vataInputs.length * 100);
-        let pitta = Math.round(this.pittaInputs.filter(this.isChecked).length / this.pittaInputs.length * 100);
-        let kapha = Math.round(this.kaphaInputs.filter(this.isChecked).length / this.kaphaInputs.length * 100);
+  // Находим все слайдеры по шаблону name="pr-qX-vata", "pr-qX-pitta", "pr-qX-kapha"
+  const vataSliders = document.querySelectorAll('input[name^="pr-q"][name$="-vata"]');
+  const pittaSliders = document.querySelectorAll('input[name^="pr-q"][name$="-pitta"]');
+  const kaphaSliders = document.querySelectorAll('input[name^="pr-q"][name$="-kapha"]');
 
-        this.vata = vata;
-        this.pitta = pitta;
-        this.kapha = kapha;
+  const numQuestions = Math.max(vataSliders.length, pittaSliders.length, kaphaSliders.length);
 
-        let resultTemplate = `<strong>Итог:</strong> Вата ${vata}%, Питта ${pitta}%, Капха ${kapha}%.`;
-        this.result.innerHTML = resultTemplate;
+  if (numQuestions === 0) {
+    console.warn("Не найдено слайдеров для расчёта.");
+    return;
+  }
 
-        let cells = document.querySelectorAll(`${this.sectionID}-results td`);
-        cells[0].textContent = `${vata}%`;
-        cells[1].textContent = `${pitta}%`;
-        cells[2].textContent = `${kapha}%`;
-    }
+  // Максимальная сумма для каждой доши: 9 баллов за вопрос × количество вопросов
+  const maxPossible = 9 * numQuestions;
+
+  // Суммируем значения слайдеров
+  const vataSum = Array.from(vataSliders).reduce((sum, slider) => sum + Number(slider.value), 0);
+  const pittaSum = Array.from(pittaSliders).reduce((sum, slider) => sum + Number(slider.value), 0);
+  const kaphaSum = Array.from(kaphaSliders).reduce((sum, slider) => sum + Number(slider.value), 0);
+
+  // Рассчитываем проценты
+  const vataPercent = Math.round((vataSum / maxPossible) * 100);
+  const pittaPercent = Math.round((pittaSum / maxPossible) * 100);
+  const kaphaPercent = Math.round((kaphaSum / maxPossible) * 100);
+
+  // Сохраняем в объект (если используется)
+  this.vata = vataPercent;
+  this.pitta = pittaPercent;
+  this.kapha = kaphaPercent;
+
+  // Обновляем отображение результата
+  const resultTemplate = `<strong>Итог:</strong> Вата ${vataPercent}%, Питта ${pittaPercent}%, Капха ${kaphaPercent}%.`;
+  this.result.innerHTML = resultTemplate;
+
+  // Обновляем таблицу (если используется)
+  const cells = document.querySelectorAll(`${this.sectionID}-results td`);
+  if (cells[0]) cells[0].textContent = `${vataPercent}%`;
+  if (cells[1]) cells[1].textContent = `${pittaPercent}%`;
+  if (cells[2]) cells[2].textContent = `${kaphaPercent}%`;
+}
 }
 
 class SummaryTotalCalculator {
@@ -80,6 +104,110 @@ let intelligenceCalc = new ResultsCalculator('#intelligence');
 let emotionsCalc = new ResultsCalculator('#emotions');
 
 new SummaryTotalCalculator([vikritiCalc, intelligenceCalc, emotionsCalc]);
+
+
+// dosha-sliders.js
+// Управляет слайдерами: сумма vata+pitta+kapha = 9 для каждого вопроса
+
+document.addEventListener('DOMContentLoaded', function () {
+  // Находим все fieldset, содержащие слайдеры с именами по шаблону pr-qX-dosha
+  const fieldsets = Array.from(document.querySelectorAll('fieldset')).filter(fs => {
+    return (
+      fs.querySelector('input[name*="-vata"]') &&
+      fs.querySelector('input[name*="-pitta"]') &&
+      fs.querySelector('input[name*="-kapha"]')
+    );
+  });
+
+  const TOTAL = 9;
+
+  // Функция: ограничение значения
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  // Функция: обновление отображаемого значения
+  function updateValueDisplay(input) {
+    const valueSpan = input.closest('label')?.querySelector('.slider-value');
+    if (valueSpan) valueSpan.textContent = input.value;
+  }
+
+  // Функция: перераспределение значений
+  function adjustSliders(changedInput) {
+    const fieldset = changedInput.closest('fieldset');
+    const vata = fieldset.querySelector('input[name*="-vata"]');
+    const pitta = fieldset.querySelector('input[name*="-pitta"]');
+    const kapha = fieldset.querySelector('input[name*="-kapha"]');
+
+    // Проверяем, что все слайдеры найдены
+    if (!vata || !pitta || !kapha) return;
+
+    const sliders = { vata, pitta, kapha };
+    const changedDosha = Object.keys(sliders).find(d => sliders[d] === changedInput);
+    const others = Object.keys(sliders)
+      .filter(d => d !== changedDosha)
+      .map(d => sliders[d]);
+
+    const sumOthers = others.reduce((sum, s) => sum + Number(s.value), 0);
+    const newSumOthers = TOTAL - Number(changedInput.value);
+
+    if (newSumOthers < 0) {
+      changedInput.value = TOTAL;
+      adjustSliders(changedInput);
+      return;
+    }
+
+    // Пропорциональное распределение
+    const val0 = Number(others[0].value);
+    const val1 = Number(others[1].value);
+
+    let newVal0, newVal1;
+
+    if (val0 === 0 && val1 === 0) {
+      newVal0 = Math.round(newSumOthers / 2);
+      newVal1 = newSumOthers - newVal0;
+    } else {
+      const ratio0 = val0 / (val0 + val1 || 1);
+      newVal0 = Math.round(ratio0 * newSumOthers);
+      newVal1 = newSumOthers - newVal0;
+    }
+
+    // Коррекция и ограничение
+    newVal0 = clamp(newVal0, 0, 9);
+    newVal1 = clamp(newVal1, 0, 9);
+    const diff = newSumOthers - (newVal0 + newVal1);
+    if (diff !== 0) {
+      if (newVal0 + diff >= 0 && newVal0 + diff <= 9) {
+        newVal0 += diff;
+      } else {
+        newVal1 += diff;
+      }
+    }
+
+    others[0].value = newVal0;
+    others[1].value = newVal1;
+
+    // Обновляем отображение
+    updateValueDisplay(others[0]);
+    updateValueDisplay(others[1]);
+    updateValueDisplay(changedInput);
+  }
+
+  // Инициализация: пройти по всем fieldset и настроить слайдеры
+  fieldsets.forEach(fieldset => {
+    const vata = fieldset.querySelector('input[name*="-vata"]');
+    const pitta = fieldset.querySelector('input[name*="-pitta"]');
+    const kapha = fieldset.querySelector('input[name*="-kapha"]');
+
+    if (!vata || !pitta || !kapha) return;
+
+    // Установить начальные значения и отобразить
+    [vata, pitta, kapha].forEach(input => {
+      updateValueDisplay(input);
+      input.addEventListener('input', () => adjustSliders(input));
+    });
+  });
+});
 
 
 // let inputsState = {};
